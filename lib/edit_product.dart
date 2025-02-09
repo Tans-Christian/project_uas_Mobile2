@@ -18,7 +18,7 @@ class _EditProductPageState extends State<EditProductPage> {
   final TextEditingController _namaController = TextEditingController();
   final TextEditingController _hargaController = TextEditingController();
   final TextEditingController _deskripsiController = TextEditingController();
-  final TextEditingController _stokController = TextEditingController();
+  final TextEditingController _gramasiController = TextEditingController();
 
   Uint8List? _newImageBytes;
   String? _newImageName;
@@ -36,7 +36,7 @@ class _EditProductPageState extends State<EditProductPage> {
     _namaController.text = widget.productData['nama_barang'] ?? '';
     _hargaController.text = widget.productData['harga'] ?? '';
     _deskripsiController.text = widget.productData['deskripsi'] ?? '';
-    _stokController.text = widget.productData['stok']?.toString() ?? '0';
+    _gramasiController.text = widget.productData['gramasi']?.toString() ?? '0';
     _imageUrl = widget.productData['gambar_url'];
     _fileUrl = widget.productData['file_url'];
     _isFree = widget.productData['harga'] == "Gratis";
@@ -50,7 +50,7 @@ class _EditProductPageState extends State<EditProductPage> {
       final bytes = await pickedFile.readAsBytes();
       setState(() {
         _newImageBytes = bytes;
-        _newImageName = 'product_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        _newImageName = 'uploads/product_${DateTime.now().millisecondsSinceEpoch}.jpg';
       });
     }
   }
@@ -61,7 +61,7 @@ class _EditProductPageState extends State<EditProductPage> {
     if (result != null) {
       setState(() {
         _newFileBytes = result.files.single.bytes;
-        _newFileName = 'file_${DateTime.now().millisecondsSinceEpoch}.${result.files.single.extension}';
+        _newFileName = 'uploads/file_${DateTime.now().millisecondsSinceEpoch}.${result.files.single.extension}';
       });
     }
   }
@@ -111,9 +111,9 @@ class _EditProductPageState extends State<EditProductPage> {
     try {
       await supabase.from('barang').update({
         'nama_barang': _namaController.text,
-        'harga': _isFree ? "Gratis" : _hargaController.text,
+        'harga': _isFree ? "Gratis" : (_hargaController.text.isNotEmpty ? _hargaController.text : "Gratis"),
         'deskripsi': _deskripsiController.text,
-        'stok': int.tryParse(_stokController.text) ?? 0,
+        'gramasi': int.tryParse(_gramasiController.text) ?? 0,
         'gambar_url': newImageUrl,
         'file_url': newFileUrl,
       }).match({'id': widget.productData['id']});
@@ -150,7 +150,6 @@ class _EditProductPageState extends State<EditProductPage> {
                     ),
                     SizedBox(height: 10),
 
-                    // Segmented Button untuk Harga
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -175,20 +174,27 @@ class _EditProductPageState extends State<EditProductPage> {
                         ),
                       ],
                     ),
+
                     if (!_isFree)
                       TextField(
                         controller: _hargaController,
                         decoration: InputDecoration(labelText: "Harga"),
                         keyboardType: TextInputType.number,
                       ),
+
                     SizedBox(height: 10),
 
                     TextField(controller: _deskripsiController, decoration: InputDecoration(labelText: "Deskripsi")),
-                    TextField(controller: _stokController, decoration: InputDecoration(labelText: "Stok"), keyboardType: TextInputType.number),
+
+                    // Mengubah Stok menjadi Gramasi
+                    TextField(
+                      controller: _gramasiController,
+                      decoration: InputDecoration(labelText: "Gramasi"),
+                      keyboardType: TextInputType.number,
+                    ),
 
                     SizedBox(height: 20),
 
-                    // Gambar
                     ElevatedButton.icon(
                       onPressed: _pickImage,
                       icon: Icon(Icons.image),
@@ -199,7 +205,6 @@ class _EditProductPageState extends State<EditProductPage> {
 
                     SizedBox(height: 10),
 
-                    // File
                     ElevatedButton.icon(
                       onPressed: _pickFile,
                       icon: Icon(Icons.file_upload),

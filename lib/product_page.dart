@@ -82,8 +82,7 @@ class _ProductPageState extends State<ProductPage> {
               ),
             ],
           ),
-        ) ??
-        false;
+        ) ?? false;
   }
 
   @override
@@ -152,6 +151,16 @@ class _ProductPageState extends State<ProductPage> {
             SizedBox(height: 8),
             Text(
               widget.barang['deskripsi'] ?? "Tidak ada deskripsi",
+              style: TextStyle(fontSize: 16),
+            ),
+            SizedBox(height: 16),
+            Text(
+              "Gramasi:",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text(
+              "${widget.barang['gramasi'] ?? 'Tidak ada informasi'} gram",
               style: TextStyle(fontSize: 16),
             ),
             SizedBox(height: 16),

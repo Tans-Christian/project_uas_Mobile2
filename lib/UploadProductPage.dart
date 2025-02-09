@@ -16,7 +16,7 @@ class _UploadProductPageState extends State<UploadProductPage> {
   final TextEditingController _namaController = TextEditingController();
   final TextEditingController _hargaController = TextEditingController();
   final TextEditingController _deskripsiController = TextEditingController();
-  final TextEditingController _stokController = TextEditingController();
+  final TextEditingController _gramasiController = TextEditingController();
 
   Uint8List? _imageBytes;
   String? _gambarUrl;
@@ -46,7 +46,7 @@ class _UploadProductPageState extends State<UploadProductPage> {
 
     try {
       const bucketName = 'product-images';
-      final filePath = 'uploads/$_imageFileName'; // Path untuk Supabase
+      final filePath = 'uploads/$_imageFileName';
 
       await supabase.storage.from(bucketName).uploadBinary(
             filePath,
@@ -89,7 +89,7 @@ class _UploadProductPageState extends State<UploadProductPage> {
 
     try {
       const bucketName = 'file-user';
-      final filePath = 'uploads/$_fileUploadedName'; // Path penyimpanan
+      final filePath = 'uploads/$_fileUploadedName';
 
       await supabase.storage.from(bucketName).uploadBinary(
             filePath,
@@ -117,17 +117,17 @@ class _UploadProductPageState extends State<UploadProductPage> {
   Future<void> _uploadProduct() async {
     if (_namaController.text.isEmpty ||
         _deskripsiController.text.isEmpty ||
-        _stokController.text.isEmpty) {
+        _gramasiController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Harap isi semua data")),
       );
       return;
     }
 
-    final int? stokValue = int.tryParse(_stokController.text);
-    if (stokValue == null || stokValue < 0) {
+    final int? gramasiValue = int.tryParse(_gramasiController.text);
+    if (gramasiValue == null || gramasiValue <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Stok harus berupa angka positif")),
+        SnackBar(content: Text("Gramasi harus berupa angka positif")),
       );
       return;
     }
@@ -140,7 +140,7 @@ class _UploadProductPageState extends State<UploadProductPage> {
         'nama_barang': _namaController.text,
         'harga': _hargaController.text.isNotEmpty ? _hargaController.text : "Gratis",
         'deskripsi': _deskripsiController.text,
-        'stok': stokValue,
+        'gramasi': gramasiValue,
         'gambar_url': _gambarUrl,
         'file_url': _fileUrl,
       });
@@ -171,7 +171,7 @@ class _UploadProductPageState extends State<UploadProductPage> {
             _buildTextField(_namaController, "Nama Barang", Icons.shopping_cart),
             _buildTextField(_hargaController, "Harga", Icons.attach_money),
             _buildTextField(_deskripsiController, "Deskripsi", Icons.description, maxLines: 3),
-            _buildTextField(_stokController, "Stok", Icons.storage, keyboardType: TextInputType.number),
+            _buildTextField(_gramasiController, "Gramasi (gram)", Icons.balance, keyboardType: TextInputType.number),
 
             SizedBox(height: 15),
 
