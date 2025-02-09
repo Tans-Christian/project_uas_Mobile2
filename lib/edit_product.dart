@@ -58,7 +58,7 @@ class _EditProductPageState extends State<EditProductPage> {
   Future<void> _pickFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles();
 
-    if (result != null) {
+    if (result != null && result.files.single.bytes != null) {
       setState(() {
         _newFileBytes = result.files.single.bytes;
         _newFileName = 'uploads/file_${DateTime.now().millisecondsSinceEpoch}.${result.files.single.extension}';
@@ -78,9 +78,7 @@ class _EditProductPageState extends State<EditProductPage> {
           );
       return supabase.storage.from(bucketName).getPublicUrl(_newImageName!);
     } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Gagal mengunggah gambar: $error")),
-      );
+      print("Error upload image: $error");
       return null;
     }
   }
@@ -97,35 +95,50 @@ class _EditProductPageState extends State<EditProductPage> {
           );
       return supabase.storage.from(bucketName).getPublicUrl(_newFileName!);
     } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Gagal mengunggah file: $error")),
-      );
+      print("Error upload file: $error");
       return null;
     }
   }
 
   Future<void> _updateProduct() async {
+    if (_namaController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Nama barang tidak boleh kosong")));
+      return;
+    }
+
+    if (!_isFree && _hargaController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Harga tidak boleh kosong")));
+      return;
+    }
+
+    if (_gramasiController.text.isEmpty || int.tryParse(_gramasiController.text) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gramasi harus berupa angka")));
+      return;
+    }
+
     final newImageUrl = await _uploadImage();
     final newFileUrl = await _uploadFile();
 
-    try {
-      await supabase.from('barang').update({
-        'nama_barang': _namaController.text,
-        'harga': _isFree ? "Gratis" : (_hargaController.text.isNotEmpty ? _hargaController.text : "Gratis"),
-        'deskripsi': _deskripsiController.text,
-        'gramasi': int.tryParse(_gramasiController.text) ?? 0,
-        'gambar_url': newImageUrl,
-        'file_url': newFileUrl,
-      }).match({'id': widget.productData['id']});
+    final updateData = {
+      'nama_barang': _namaController.text,
+      'harga': _isFree ? "Gratis" : (_hargaController.text.isNotEmpty ? _hargaController.text : "Gratis"),
+      'deskripsi': _deskripsiController.text,
+      'gramasi': int.tryParse(_gramasiController.text) ?? 0,
+      'gambar_url': newImageUrl,
+      'file_url': newFileUrl,
+    };
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Produk berhasil diperbarui")),
-      );
+    print("Mengirim data ke Supabase: $updateData");
+
+    try {
+      final response = await supabase.from('barang').update(updateData).match({'id': widget.productData['id']});
+      print("Response Supabase: $response");
+
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Produk berhasil diperbarui")));
       Navigator.pop(context);
     } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $error")),
-      );
+      print("Error saat update: $error");
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal memperbarui produk")));
     }
   }
 
@@ -137,94 +150,40 @@ class _EditProductPageState extends State<EditProductPage> {
         padding: EdgeInsets.all(16.0),
         child: Column(
           children: [
-            Card(
-              elevation: 5,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: _namaController,
-                      decoration: InputDecoration(labelText: "Nama Barang"),
-                    ),
-                    SizedBox(height: 10),
+            TextField(controller: _namaController, decoration: InputDecoration(labelText: "Nama Barang")),
 
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ChoiceChip(
-                          label: Text("Gratis"),
-                          selected: _isFree,
-                          onSelected: (selected) {
-                            setState(() {
-                              _isFree = selected;
-                            });
-                          },
-                        ),
-                        SizedBox(width: 10),
-                        ChoiceChip(
-                          label: Text("Custom Harga"),
-                          selected: !_isFree,
-                          onSelected: (selected) {
-                            setState(() {
-                              _isFree = !selected;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-
-                    if (!_isFree)
-                      TextField(
-                        controller: _hargaController,
-                        decoration: InputDecoration(labelText: "Harga"),
-                        keyboardType: TextInputType.number,
-                      ),
-
-                    SizedBox(height: 10),
-
-                    TextField(controller: _deskripsiController, decoration: InputDecoration(labelText: "Deskripsi")),
-
-                    // Mengubah Stok menjadi Gramasi
-                    TextField(
-                      controller: _gramasiController,
-                      decoration: InputDecoration(labelText: "Gramasi"),
-                      keyboardType: TextInputType.number,
-                    ),
-
-                    SizedBox(height: 20),
-
-                    ElevatedButton.icon(
-                      onPressed: _pickImage,
-                      icon: Icon(Icons.image),
-                      label: Text("Pilih Gambar Baru"),
-                    ),
-                    if (_newImageBytes != null) Image.memory(_newImageBytes!, width: 120, height: 120),
-                    if (_imageUrl != null) Image.network(_imageUrl!, width: 120, height: 120),
-
-                    SizedBox(height: 10),
-
-                    ElevatedButton.icon(
-                      onPressed: _pickFile,
-                      icon: Icon(Icons.file_upload),
-                      label: Text("Pilih File Baru"),
-                    ),
-                    if (_newFileName != null) Text("File Baru: $_newFileName"),
-                    if (_fileUrl != null) Text("File Lama: $_fileUrl"),
-
-                    SizedBox(height: 20),
-
-                    ElevatedButton.icon(
-                      onPressed: _updateProduct,
-                      icon: Icon(Icons.save),
-                      label: Text("Simpan Perubahan"),
-                      style: ElevatedButton.styleFrom(padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-                    ),
-                  ],
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ChoiceChip(
+                  label: Text("Gratis"),
+                  selected: _isFree,
+                  onSelected: (selected) => setState(() => _isFree = selected),
                 ),
-              ),
+                SizedBox(width: 10),
+                ChoiceChip(
+                  label: Text("Custom Harga"),
+                  selected: !_isFree,
+                  onSelected: (selected) => setState(() => _isFree = !selected),
+                ),
+              ],
             ),
+
+            if (!_isFree)
+              TextField(controller: _hargaController, decoration: InputDecoration(labelText: "Harga"), keyboardType: TextInputType.number),
+
+            TextField(controller: _deskripsiController, decoration: InputDecoration(labelText: "Deskripsi")),
+            TextField(controller: _gramasiController, decoration: InputDecoration(labelText: "Gramasi"), keyboardType: TextInputType.number),
+
+            ElevatedButton.icon(onPressed: _pickImage, icon: Icon(Icons.image), label: Text("Pilih Gambar")),
+            if (_newImageBytes != null) Image.memory(_newImageBytes!, width: 120, height: 120),
+            if (_imageUrl != null) Image.network(_imageUrl!, width: 120, height: 120),
+
+            ElevatedButton.icon(onPressed: _pickFile, icon: Icon(Icons.file_upload), label: Text("Pilih File")),
+            if (_newFileName != null) Text("File Baru: $_newFileName"),
+            if (_fileUrl != null) Text("File Lama: $_fileUrl"),
+
+            ElevatedButton.icon(onPressed: _updateProduct, icon: Icon(Icons.save), label: Text("Simpan Perubahan")),
           ],
         ),
       ),
