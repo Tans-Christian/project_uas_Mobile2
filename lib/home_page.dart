@@ -14,9 +14,12 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final SupabaseClient supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _products = [];
+  List<Map<String, dynamic>> _filteredProducts = [];
   String? _userEmail;
   bool _isLoading = true;
   bool _isLoggingOut = false;
+  String _searchQuery = "";
+  String _selectedFilter = "Semua";
 
   @override
   void initState() {
@@ -43,6 +46,7 @@ class _HomePageState extends State<HomePage> {
       final List<dynamic> response = await supabase.from('barang').select();
       setState(() {
         _products = response.map((item) => Map<String, dynamic>.from(item)).toList();
+        _filteredProducts = _products;
         _isLoading = false;
       });
     } catch (error) {
@@ -76,6 +80,22 @@ class _HomePageState extends State<HomePage> {
     ).then((_) => _fetchProducts());
   }
 
+  void _filterProducts() {
+    setState(() {
+      _filteredProducts = _products.where((product) {
+        final matchesSearch = product['nama_barang']
+            .toLowerCase()
+            .contains(_searchQuery.toLowerCase());
+
+        final matchesFilter = _selectedFilter == "Semua" ||
+            (product['harga'] == "Gratis" && _selectedFilter == "Gratis") ||
+            (product['harga'] != "Gratis" && _selectedFilter == "Custom Harga");
+
+        return matchesSearch && matchesFilter;
+      }).toList();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -99,79 +119,123 @@ class _HomePageState extends State<HomePage> {
                 ),
         ],
       ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : _products.isEmpty
-              ? Center(child: Text("Belum ada produk."))
-              : Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: GridView.builder(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                      childAspectRatio: 0.8,
-                    ),
-                    itemCount: _products.length,
-                    itemBuilder: (context, index) {
-                      final product = _products[index];
-                      final String? imageUrl = product['gambar_url'];
-
-                      return GestureDetector(
-                        onTap: () => _navigateToProductDetail(product),
-                        child: Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              decoration: InputDecoration(
+                labelText: "Cari produk...",
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                  _filterProducts();
+                });
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: DropdownButtonFormField<String>(
+              decoration: InputDecoration(
+                labelText: "Filter Harga",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              value: _selectedFilter,
+              items: ["Semua", "Gratis", "Custom Harga"].map((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedFilter = value!;
+                  _filterProducts();
+                });
+              },
+            ),
+          ),
+          Expanded(
+            child: _isLoading
+                ? Center(child: CircularProgressIndicator())
+                : _filteredProducts.isEmpty
+                    ? Center(child: Text("Tidak ada produk yang cocok."))
+                    : Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: GridView.builder(
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8,
+                            childAspectRatio: 0.8,
                           ),
-                          elevation: 5,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
-                                  child: imageUrl != null && imageUrl.isNotEmpty
-                                      ? Image.network(
-                                          imageUrl,
-                                          width: double.infinity,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) {
-                                            return Icon(Icons.broken_image, size: 60, color: Colors.grey);
-                                          },
-                                        )
-                                      : Container(
-                                          width: double.infinity,
-                                          color: Colors.grey[300],
-                                          child: Icon(Icons.image_not_supported, size: 60, color: Colors.grey),
-                                        ),
+                          itemCount: _filteredProducts.length,
+                          itemBuilder: (context, index) {
+                            final product = _filteredProducts[index];
+                            final String? imageUrl = product['gambar_url'];
+
+                            return GestureDetector(
+                              onTap: () => _navigateToProductDetail(product),
+                              child: Card(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(15),
                                 ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
+                                elevation: 5,
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      product['nama_barang'],
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                    Expanded(
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+                                        child: imageUrl != null && imageUrl.isNotEmpty
+                                            ? Image.network(
+                                                imageUrl,
+                                                width: double.infinity,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error, stackTrace) {
+                                                  return Icon(Icons.broken_image, size: 60, color: Colors.grey);
+                                                },
+                                              )
+                                            : Container(
+                                                width: double.infinity,
+                                                color: Colors.grey[300],
+                                                child: Icon(Icons.image_not_supported, size: 60, color: Colors.grey),
+                                              ),
+                                      ),
                                     ),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      product['harga'] == "Gratis" ? "Gratis" : "Rp ${product['harga']}",
-                                      style: TextStyle(fontSize: 14, color: Colors.green),
+                                    Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            product['nama_barang'],
+                                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          SizedBox(height: 4),
+                                          Text(
+                                            product['harga'] == "Gratis" ? "Gratis" : "Rp ${product['harga']}",
+                                            style: TextStyle(fontSize: 14, color: Colors.green),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
-                            ],
-                          ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
-                ),
+                      ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _navigateToUploadProduct,
         backgroundColor: Colors.blue,
